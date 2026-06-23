@@ -500,6 +500,7 @@ function init() {
   current = 0;
   answered = {};
   submitted = {};
+  document.getElementById('progress').innerHTML = '第 <span id="currentIdx">1</span> / ' + bank.length + ' 题';
   renderQuestion();
   renderActions();
 }
