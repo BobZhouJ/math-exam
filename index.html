@@ -518,8 +518,14 @@ function renderQuestion() {
   const isChoice = q.t === 'c';
   const total = bank.length;
 
-  document.getElementById('currentIdx').textContent = current + 1;
+    var cIdxEl = document.getElementById('currentIdx');
+  if (!cIdxEl) {
+    document.getElementById('progress').innerHTML = '第 <span id="currentIdx">' + (current + 1) + '</span> / ' + bank.length + ' 题';
+  } else {
+    cIdxEl.textContent = current + 1;
+  }
 
+  let html = '<div class="card active">';
   let html = '<div class="card active">';
   html += '<div class="q-header">';
   html += '<span class="q-type ' + (isChoice ? 'choice' : 'judge') + '">' + (isChoice ? '选择题' : '判断题') + '</span>';
