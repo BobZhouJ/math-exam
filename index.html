@@ -776,7 +776,9 @@ function redoWrong() {
   answered = {};
   submitted = {};  // Fresh start for wrong questions
   renderQuestion();
-  document.getElementById('progress').textContent = '错题练习 (共 ' + order.length + ' 题)';
+  // Show redo mode with currentIdx span preserved for navigation
+  document.getElementById('progress').innerHTML = '错题练习 (共 <span id="currentIdx">' + (current + 1) + '</span> / ' + order.length + ' 题)';
+  renderActions();
 }
 
 // 页面加载后启动
