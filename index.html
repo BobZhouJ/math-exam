@@ -455,6 +455,7 @@ let order = [];
 let current = 0;
 let answered = {};
 let isTransitioning = false;
+let submitted = {};  // track which questions have been submitted
 
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -468,6 +469,7 @@ function init() {
   order = shuffle(bank.map((_, i) => i));
   current = 0;
   answered = {};
+  submitted = {};
   renderQuestion();
 }
 
@@ -494,7 +496,13 @@ function renderQuestion() {
     q.o.forEach(function(opt, i) {
       const val = labels[i];
       const sel = answered[idx] === val ? ' selected' : '';
-      html += '<div class="option' + sel + '" data-val="' + val + '" onclick="selectOption(this, ' + idx + ', \'' + val + '\')">';
+      var extraClass = '';
+      if (submitted[idx] && answered[idx] === val) {
+        extraClass = answered[idx] === q.a ? ' correct' : ' wrong';
+      } else if (submitted[idx] && val === q.a) {
+        extraClass = ' show-correct';
+      }
+      html += '<div class="option' + sel + extraClass + '" data-val="' + val + '" onclick="selectOption(this, ' + idx + ', \'' + val + '\')">';
       html += '<span class="opt-label">' + val + '.</span>' + opt;
       html += '</div>';
     });
@@ -503,10 +511,26 @@ function renderQuestion() {
     html += '<div class="judge-options" id="options">';
     ['√','×'].forEach(function(val) {
       const sel = answered[idx] === val ? ' selected' : '';
+      var extraClass = '';
+      if (submitted[idx] && answered[idx] === val) {
+        extraClass = answered[idx] === q.a ? ' correct' : ' wrong';
+      } else if (submitted[idx] && val === q.a) {
+        extraClass = ' show-correct';
+      }
       const label = val === '√' ? '✓ 正确' : '✗ 错误';
-      html += '<div class="option' + sel + '" data-val="' + val + '" onclick="selectOption(this, ' + idx + ', \'' + val + '\')">' + label + '</div>';
+      html += '<div class="option' + sel + extraClass + '" data-val="' + val + '" onclick="selectOption(this, ' + idx + ', \'' + val + '\')">' + label + '</div>';
     });
     html += '</div>';
+  }
+
+  // Show result for previously submitted questions
+  if (submitted[idx] && answered[idx]) {
+    var isCorrect = answered[idx] === q.a;
+    var resultClass = isCorrect ? 'result-right' : 'result-wrong';
+    var resultText = isCorrect ? '✅ 回答正确！' : '❌ 回答错误。正确答案：' + (q.t === 'c' ? q.a : (q.a === '√' ? '正确' : '错误'));
+    html += '<div class="result-text show ' + resultClass + '">' + resultText + '</div>';
+  } else {
+    html += '<div class="result-text" id="result"></div>';
   }
 
   html += '<div class="actions">';
@@ -531,6 +555,8 @@ function selectOption(el, idx, val) {
   });
   el.classList.add('selected');
   answered[idx] = val;
+  // Clear submission state so user can change answer
+  delete submitted[idx];
   document.getElementById('result').classList.remove('show');
 }
 
@@ -556,6 +582,9 @@ function submitAnswer() {
     if (o.dataset.val === chosen && !correct) o.classList.add('wrong');
     if (o.dataset.val === chosen) o.classList.add('selected');
   });
+
+  // Record that this question was submitted
+  submitted[idx] = true;
 
   if (correct) {
     resultDiv.textContent = '✅ 回答正确！';
