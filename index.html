@@ -196,6 +196,81 @@ body {
   .q-body { font-size: 16px; }
   .option { padding: 14px 14px; font-size: 15px; }
 }
+
+.summary-card {
+  background: #fff;
+  border: 1px solid #e8e6e1;
+  padding: 32px 28px;
+  text-align: center;
+}
+.summary-card h2 {
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  margin-bottom: 24px;
+  color: #1a1a1a;
+}
+.summary-stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 28px;
+}
+.summary-stats .stat { text-align: center; }
+.summary-stats .stat .num {
+  font-size: 32px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.summary-stats .stat .label {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+.summary-stats .stat.correct .num { color: #3a6b3a; }
+.summary-stats .stat.wrong .num { color: #8b3a3a; }
+.summary-stats .stat.total .num { color: #1a1a1a; }
+.summary-stats .stat.rate .num { color: #4a6a8b; }
+.summary-list {
+  margin-top: 20px;
+  text-align: left;
+  max-height: 300px;
+  overflow-y: auto;
+  border-top: 1px solid #e8e6e1;
+  padding-top: 16px;
+}
+.summary-list .err-item {
+  padding: 8px 0;
+  border-bottom: 1px solid #f0eee9;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.summary-list .err-item .err-q {
+  color: #888;
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.03em;
+}
+.summary-list .err-item .err-text { color: #2c2c2c; margin: 2px 0; }
+.summary-list .err-item .err-ans { font-size: 13px; color: #3a6b3a; }
+.summary-list .err-item .err-your { font-size: 13px; color: #8b3a3a; }
+.summary-actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+@media (max-width: 480px) {
+  body { font-size: 15px; }
+  .card { padding: 20px 16px 18px; }
+  .q-body { font-size: 16px; }
+  .option { padding: 14px 14px; font-size: 15px; }
+  .summary-stats { gap: 20px; }
+  .summary-stats .stat .num { font-size: 26px; }
+  .summary-card { padding: 24px 18px; }
+}
 </style>
 </head>
 <body>
@@ -379,6 +454,7 @@ const app = document.getElementById('app');
 let order = [];
 let current = 0;
 let answered = {};
+let isTransitioning = false;
 
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -438,6 +514,9 @@ function renderQuestion() {
   html += '<button class="btn btn-outline" onclick="prevQuestion()"' + (current === 0 ? ' disabled' : '') + '>上一题</button>';
   html += '<button class="btn btn-outline" onclick="nextQuestion()"' + (current === total - 1 ? ' disabled' : '') + '>下一题</button>';
   html += '</div>';
+  html += '<div style="margin-top:6px;text-align:center;">';
+  html += '<button class="btn btn-outline" style="min-width:auto;flex:0 1 auto;padding:6px 14px;font-size:12px;" onclick="showSummary()">查看统计</button>';
+  html += '</div>';
   html += '<div class="result-text" id="result"></div>';
   html += '</div>';
 
@@ -489,23 +568,125 @@ function submitAnswer() {
 }
 
 function nextQuestion() {
-  if (current < bank.length - 1) { current++; renderQuestion(); }
+  if (isTransitioning) return;
+  if (current < bank.length - 1) {
+    isTransitioning = true;
+    current++;
+    renderQuestion();
+    setTimeout(function() { isTransitioning = false; }, 300);
+  }
 }
 
 function prevQuestion() {
-  if (current > 0) { current--; renderQuestion(); }
+  if (isTransitioning) return;
+  if (current > 0) {
+    isTransitioning = true;
+    current--;
+    renderQuestion();
+    setTimeout(function() { isTransitioning = false; }, 300);
+  }
 }
 
+function goToQuestion(n) {
+  if (isTransitioning) return;
+  if (n >= 0 && n < bank.length) {
+    isTransitioning = true;
+    current = n;
+    renderQuestion();
+    setTimeout(function() { isTransitioning = false; }, 300);
+  }
+}
+
+//
 // Keyboard navigation
 document.addEventListener('keydown', function(e) {
+  if (isTransitioning) return;
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextQuestion();
   if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') prevQuestion();
-  if (e.key === 'Enter') submitAnswer();
+  if (e.key === 'Enter') { e.preventDefault(); submitAnswer(); }
   if (e.key === '1') { var opt = document.querySelector('#options .option[data-val="A"]'); if(opt) opt.click(); }
   if (e.key === '2') { var opt = document.querySelector('#options .option[data-val="B"]'); if(opt) opt.click(); }
   if (e.key === '3') { var opt = document.querySelector('#options .option[data-val="C"]'); if(opt) opt.click(); }
   if (e.key === '4') { var opt = document.querySelector('#options .option[data-val="D"]'); if(opt) opt.click(); }
 });
+
+/* ========== Stats + Wrong Question Redo ========== */
+
+function getStats() {
+  var total = bank.length;
+  var done = 0, correct = 0, wrong = 0;
+  var wrongList = [];
+  order.forEach(function(bankIdx) {
+    var q = bank[bankIdx];
+    var ans = answered[bankIdx];
+    if (!ans) return;
+    done++;
+    if (ans === q.a) {
+      correct++;
+    } else {
+      wrong++;
+      wrongList.push({ idx: bankIdx, q: q, yourAns: ans });
+    }
+  });
+  return { total: total, done: done, correct: correct, wrong: wrong, rate: done > 0 ? Math.round(correct / done * 100) : 0, wrongList: wrongList };
+}
+
+function showSummary() {
+  var stats = getStats();
+  var html = '<div class="card active"><div class="summary-card">';
+  html += '<h2><center>答题统计</center></h2>';
+  html += '<div class="summary-stats">';
+  html += '<div class="stat total"><div class="num">' + stats.total + '</div><div class="label">总题数</div></div>';
+  html += '<div class="stat correct"><div class="num">' + stats.correct + '</div><div class="label">正确</div></div>';
+  html += '<div class="stat wrong"><div class="num">' + stats.wrong + '</div><div class="label">错误</div></div>';
+  html += '<div class="stat rate"><div class="num">' + stats.rate + '%</div><div class="label">正确率</div></div>';
+  html += '</div>';
+
+  if (stats.done === 0) {
+    html += '<p style="color:#999;font-size:14px;">还没有答过题</p>';
+  }
+
+  if (stats.wrongList.length > 0) {
+    html += '<div class="summary-list">';
+    stats.wrongList.forEach(function(item) {
+      var correctAns = item.q.t === 'c' ? item.q.a : (item.q.a === '√' ? '正确' : '错误');
+      var yourAns = item.q.t === 'c' ? item.yourAns : (item.yourAns === '√' ? '正确' : '错误');
+      html += '<div class="err-item">';
+      html += '<div class="err-q">考试原题 #' + item.q.n + ' &middot; ' + (item.q.t === 'c' ? '选择题' : '判断题') + '</div>';
+      html += '<div class="err-text">' + item.q.q + '</div>';
+      html += '<div class="err-your">[x] 你的答案：' + yourAns + '</div>';
+      html += '<div class="err-ans">[v] 正确答案：' + correctAns + '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '<div class="summary-actions">';
+  if (stats.wrong > 0) {
+    html += '<button class="btn btn-success" onclick="redoWrong()">重做错题 (' + stats.wrong + ')</button>';
+  }
+  html += '<button class="btn btn-outline" onclick="init()">重新开始</button>';
+  html += '</div>';
+  html += '</div></div>';
+
+  app.innerHTML = html;
+  renderMath();
+  document.getElementById('currentIdx').textContent = '-';
+  document.getElementById('progress').textContent = '统计';
+}
+
+function redoWrong() {
+  var stats = getStats();
+  if (stats.wrongList.length === 0) {
+    showSummary();
+    return;
+  }
+  order = shuffle(stats.wrongList.map(function(item) { return item.idx; }));
+  current = 0;
+  answered = {};
+  renderQuestion();
+  document.getElementById('progress').textContent = '错题练习 (共 ' + order.length + ' 题)';
+}
 
 // 页面加载后启动
 init();
