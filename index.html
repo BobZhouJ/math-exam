@@ -11,6 +11,10 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body {
+  height: 100%;
+  margin: 0;
+}
 body {
   font-family: Georgia, "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", serif;
   background: #f8f7f4;
@@ -18,6 +22,8 @@ body {
   padding: 0;
   line-height: 1.7;
   -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
 }
 
 .header {
@@ -25,7 +31,6 @@ body {
   color: #2c2c2c;
   padding: 24px 20px 16px;
   text-align: center;
-  position: sticky; top: 0; z-index: 100;
   border-bottom: 1px solid #e8e6e1;
 }
 .header h1 {
@@ -50,17 +55,22 @@ body {
 .container {
   max-width: 640px;
   margin: 0 auto;
-  padding: 20px 16px 32px;
+  padding: 20px 16px 0;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .card {
   display: none;
   background: #fff;
   border: 1px solid #e8e6e1;
-  padding: 28px 24px 24px;
-  margin-bottom: 20px;
+  padding: 28px 24px 20px;
+  margin-bottom: 0;
 }
-.card.active { display: block; }
+.card.active { display: flex; flex-direction: column; flex: 1; }
+.card .q-body { flex: 1; }
 
 .q-header {
   display: flex;
@@ -128,6 +138,15 @@ body {
   gap: 8px;
   margin-top: 24px;
   flex-wrap: wrap;
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 12px 0;
+  border-top: 1px solid #e8e6e1;
+  margin-left: -24px;
+  margin-right: -24px;
+  padding-left: 24px;
+  padding-right: 24px;
 }
 .btn {
   flex: 1;
@@ -192,9 +211,18 @@ body {
 
 @media (max-width: 480px) {
   body { font-size: 15px; }
-  .card { padding: 20px 16px 18px; }
+  .card { padding: 16px 14px 12px; }
+  .card .q-body { flex: 1; }
   .q-body { font-size: 16px; }
   .option { padding: 14px 14px; font-size: 15px; }
+  .actions {
+    margin-left: -14px;
+    margin-right: -14px;
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
 }
 
 .summary-card {
@@ -264,9 +292,18 @@ body {
 
 @media (max-width: 480px) {
   body { font-size: 15px; }
-  .card { padding: 20px 16px 18px; }
+  .card { padding: 16px 14px 12px; }
+  .card .q-body { flex: 1; }
   .q-body { font-size: 16px; }
   .option { padding: 14px 14px; font-size: 15px; }
+  .actions {
+    margin-left: -14px;
+    margin-right: -14px;
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
   .summary-stats { gap: 20px; }
   .summary-stats .stat .num { font-size: 26px; }
   .summary-card { padding: 24px 18px; }
@@ -546,6 +583,14 @@ function renderQuestion() {
 
   app.innerHTML = html;
   renderMath();
+  
+  // Safety: ensure no stale selection on unvisited questions
+  const curIdx = order[current];
+  if (!submitted[curIdx] && !answered[curIdx]) {
+    document.querySelectorAll('#options .option.selected').forEach(function(el) {
+      el.classList.remove('selected');
+    });
+  }
 }
 
 function selectOption(el, idx, val) {
@@ -586,9 +631,24 @@ function submitAnswer() {
   // Record that this question was submitted
   submitted[idx] = true;
 
+  // Check if wrong-question redo mode is complete
+  var isRedoMode = document.getElementById('progress').textContent.indexOf('错题练习') >= 0;
+
   if (correct) {
     resultDiv.textContent = '✅ 回答正确！';
     resultDiv.className = 'result-text show result-right';
+    // Check if redo mode is complete
+    if (isRedoMode) {
+      var allDone = true;
+      order.forEach(function(i) {
+        if (!submitted[i]) allDone = false;
+      });
+      if (allDone) {
+        setTimeout(function() {
+          resultDiv.textContent += ' 全部错题已纠正！点击查看统计查看结果。';
+        }, 100);
+      }
+    }
   } else {
     const ansText = q.t === 'c' ? q.a : (q.a === '√' ? '正确' : '错误');
     resultDiv.textContent = '❌ 回答错误。正确答案：' + ansText;
@@ -701,6 +761,7 @@ function redoWrong() {
   order = shuffle(stats.wrongList.map(function(item) { return item.idx; }));
   current = 0;
   answered = {};
+  submitted = {};  // Fresh start for wrong questions
   renderQuestion();
   document.getElementById('progress').textContent = '错题练习 (共 ' + order.length + ' 题)';
 }
