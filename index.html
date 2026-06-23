@@ -24,6 +24,7 @@ body {
   -webkit-font-smoothing: antialiased;
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
 }
 
 .header {
@@ -32,6 +33,7 @@ body {
   padding: 24px 20px 16px;
   text-align: center;
   border-bottom: 1px solid #e8e6e1;
+  flex-shrink: 0;
 }
 .header h1 {
   font-size: 18px;
@@ -58,8 +60,8 @@ body {
   padding: 20px 16px 0;
   flex: 1;
   width: 100%;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .card {
@@ -69,8 +71,8 @@ body {
   padding: 28px 24px 20px;
   margin-bottom: 0;
 }
-.card.active { display: flex; flex-direction: column; flex: 1; }
-.card .q-body { flex: 1; }
+.card.active { display: block; }
+.card.active.summary-mode { display: block; }
 
 .q-header {
   display: flex;
@@ -134,19 +136,18 @@ body {
 }
 
 .actions {
+  flex-shrink: 0;
+  background: #fff;
+  padding: 12px 16px;
+  border-top: 1px solid #e8e6e1;
+}
+.actions-inner {
+  max-width: 640px;
+  margin: 0 auto;
   display: flex;
   gap: 8px;
-  margin-top: 24px;
   flex-wrap: wrap;
-  position: sticky;
-  bottom: 0;
-  background: #fff;
-  padding: 12px 0;
-  border-top: 1px solid #e8e6e1;
-  margin-left: -24px;
-  margin-right: -24px;
-  padding-left: 24px;
-  padding-right: 24px;
+  align-items: center;
 }
 .btn {
   flex: 1;
@@ -216,12 +217,7 @@ body {
   .q-body { font-size: 16px; }
   .option { padding: 14px 14px; font-size: 15px; }
   .actions {
-    margin-left: -14px;
-    margin-right: -14px;
-    padding-left: 14px;
-    padding-right: 14px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    padding: 10px 14px;
   }
 }
 
@@ -297,12 +293,7 @@ body {
   .q-body { font-size: 16px; }
   .option { padding: 14px 14px; font-size: 15px; }
   .actions {
-    margin-left: -14px;
-    margin-right: -14px;
-    padding-left: 14px;
-    padding-right: 14px;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    padding: 10px 14px;
   }
   .summary-stats { gap: 20px; }
   .summary-stats .stat .num { font-size: 26px; }
@@ -319,6 +310,8 @@ body {
 </div>
 
 <div class="container" id="app"></div>
+
+<div class="actions" id="actions"></div>
 
 <div class="footer">数学期末题库 &middot; 使用 KaTeX 渲染</div>
 
@@ -508,6 +501,7 @@ function init() {
   answered = {};
   submitted = {};
   renderQuestion();
+  renderActions();
 }
 
 function getQ() { return bank[order[current]]; }
@@ -575,15 +569,6 @@ function renderQuestion() {
     html += '<div class="result-text" id="result"></div>';
   }
 
-  html += '<div class="actions">';
-  html += '<button class="btn btn-success" onclick="submitAnswer()" id="btnSubmit">提交答案</button>';
-  html += '<button class="btn btn-outline" onclick="prevQuestion()"' + (current === 0 ? ' disabled' : '') + '>上一题</button>';
-  html += '<button class="btn btn-outline" onclick="nextQuestion()"' + (current === total - 1 ? ' disabled' : '') + '>下一题</button>';
-  html += '</div>';
-  html += '<div style="margin-top:6px;text-align:center;">';
-  html += '<button class="btn btn-outline" style="min-width:auto;flex:0 1 auto;padding:6px 14px;font-size:12px;" onclick="showSummary()">查看统计</button>';
-  html += '</div>';
-  html += '<div class="result-text" id="result"></div>';
   html += '</div>';
 
   app.innerHTML = html;
@@ -662,11 +647,11 @@ function submitAnswer() {
 }
 
 function nextQuestion() {
-  if (current < bank.length - 1) { current++; renderQuestion(); }
+  if (current < bank.length - 1) { current++; renderQuestion(); renderActions(); }
 }
 
 function prevQuestion() {
-  if (current > 0) { current--; renderQuestion(); }
+  if (current > 0) { current--; renderQuestion(); renderActions(); }
 }
 
 function goToQuestion(n) {
@@ -675,6 +660,7 @@ function goToQuestion(n) {
     isTransitioning = true;
     current = n;
     renderQuestion();
+    renderActions();
     setTimeout(function() { isTransitioning = false; }, 300);
   }
 }
@@ -691,6 +677,27 @@ document.addEventListener('keydown', function(e) {
   if (e.key === '3') { var opt = document.querySelector('#options .option[data-val="C"]'); if(opt) opt.click(); }
   if (e.key === '4') { var opt = document.querySelector('#options .option[data-val="D"]'); if(opt) opt.click(); }
 });
+
+/* ========== Navigation bar (always at bottom) ========== */
+function renderActions() {
+  const total = bank.length;
+  var isRedoMode = document.getElementById('progress').textContent.indexOf('错题练习') >= 0;
+  
+  var html = '<div class="actions-inner">';
+  html += '<button class="btn btn-success" onclick="submitAnswer()" id="btnSubmit">提交答案</button>';
+  html += '<button class="btn btn-outline" onclick="prevQuestion()"' + (current === 0 ? ' disabled' : '') + '>上一题</button>';
+  html += '<button class="btn btn-outline" onclick="nextQuestion()"' + (current === total - 1 ? ' disabled' : '') + '>下一题</button>';
+  html += '<button class="btn btn-outline" style="min-width:auto;flex:0 1 auto;padding:6px 14px;font-size:12px;" onclick="showSummary()">统计</button>';
+  if (isRedoMode) {
+    html += '<button class="btn btn-outline" style="min-width:auto;flex:0 1 auto;padding:6px 14px;font-size:12px;" onclick="exitRedo()">← 返回完整答题</button>';
+  }
+  html += '</div>';
+  document.getElementById('actions').innerHTML = html;
+}
+
+function exitRedo() {
+  init();
+}
 
 /* ========== Stats + Wrong Question Redo ========== */
 
@@ -755,6 +762,7 @@ function showSummary() {
   renderMath();
   document.getElementById('currentIdx').textContent = '-';
   document.getElementById('progress').textContent = '统计';
+  document.getElementById('actions').innerHTML = '';
 }
 
 function redoWrong() {
