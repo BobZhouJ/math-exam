@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>数学期末题库</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -38,6 +39,8 @@ body {
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   display: none;
 }
+.card.active { display: block; }
+
 .card.active { display: block; }
 .q-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -139,9 +142,11 @@ body {
 <div class="footer">题目来源于飞书文档 · 使用 KaTeX 渲染公式</div>
 
 <script>
-// KaTeX auto-render
+// KaTeX 加载检测 + 延迟渲染，解决首次进入 $ 符号未渲染的问题
+var _katexTimer = null;
 function renderMath() {
   if (typeof renderMathInElement === 'function') {
+    if (_katexTimer) { clearInterval(_katexTimer); _katexTimer = null; }
     renderMathInElement(document.body, {
       delimiters: [
         {left: '$$', right: '$$', display: true},
@@ -150,6 +155,24 @@ function renderMath() {
         {left: '\\[', right: '\\]', display: true}
       ]
     });
+  } else {
+    // KaTeX 尚未加载完，每隔 100ms 重试
+    if (!_katexTimer) {
+      _katexTimer = setInterval(function() {
+        if (typeof renderMathInElement === 'function') {
+          clearInterval(_katexTimer);
+          _katexTimer = null;
+          renderMath();
+        }
+      }, 100);
+      // 兜底：15 秒后停止
+      setTimeout(function() {
+        if (_katexTimer) {
+          clearInterval(_katexTimer);
+          _katexTimer = null;
+        }
+      }, 15000);
+    }
   }
 }
 
@@ -415,6 +438,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === '4') { var opt = document.querySelector('#options .option[data-val="D"]'); if(opt) opt.click(); }
 });
 
+// 页面加载后启动
 init();
 </script>
 </body>
